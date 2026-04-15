@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NutriRecomp Master OS v9.1</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono&family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f0f0f; --card: #1a1a1a; 
+            --accent: #ab58cd; /* Violet */
+            --data-blue: #a9edf8; /* Bleu */
+            --text: #ffffff; --text-dim: #a0a0a0; --border: #333;
+            --font-main: 'DM Sans', sans-serif; --font-mono: 'DM Mono', monospace;
+        }
+        body { background-color: var(--bg); color: var(--text); font-family: var(--font-main); margin: 0; padding-bottom: 110px; -webkit-font-smoothing: antialiased; }
+        .header { padding: 15px; border-bottom: 1px solid var(--border); text-align: center; position: sticky; top: 0; background: var(--bg); z-index: 10; }
+        h1 { font-size: 0.8rem; color: var(--accent); text-transform: uppercase; margin: 0; letter-spacing: 2px; }
+        
+        .nav-tabs { position: fixed; bottom: 0; width: 100%; background: var(--card); display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--border); z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+        .tab-btn { padding: 15px 2px; background: none; border: none; color: var(--text-dim); font-size: 0.55rem; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+        .tab-btn.active { color: var(--accent); border-top: 3px solid var(--accent); }
+        
+        .content-section { display: none; padding: 20px; max-width: 550px; margin: 0 auto; }
+        .content-section.active { display: block; }
+        
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; position: relative; }
+        .card.today { border: 1px solid var(--accent); background: rgba(171, 88, 205, 0.05); }
+        .today-badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: white; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .day-label { color: var(--accent); font-family: var(--font-mono); margin: 20px 0 10px 0; font-size: 0.85rem; border-bottom: 1px solid #333; padding-bottom: 4px; text-transform: uppercase; }
+
+        .exo-line { display: grid; grid-template-columns: 1fr 65px 35px; gap: 8px; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #222; padding-bottom: 8px; }
+        .exo-name { font-size: 0.85rem; font-weight: bold; }
+        .exo-tip { font-size: 0.7rem; color: var(--text-dim); display: block; }
+        .perf-input { background: #222; border: 1px solid #444; color: var(--data-blue); padding: 5px; border-radius: 4px; width: 100%; text-align: center; font-family: var(--font-mono); font-size: 0.8rem; outline: none; }
+        
+        .filter-bar { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 20px; padding-bottom: 5px; scrollbar-width: none; }
+        .filter-btn { background: #222; border: 1px solid #444; color: var(--text-dim); padding: 8px 16px; border-radius: 20px; font-size: 0.7rem; cursor: pointer; white-space: nowrap; font-family: var(--font-mono); }
+        .filter-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .recipe-details { display: none; margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
+        .recipe-details.active { display: block; }
+        .step-item { display: flex; gap: 12px; margin-bottom: 10px; font-size: 0.85rem; color: var(--text-dim); }
+        .step-num { color: var(--accent); font-weight: bold; }
+
+        .shopping-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #222; font-size: 0.85rem; }
+        input[type="checkbox"] { accent-color: var(--accent); scale: 1.2; }
+
+        .chart-container { background: var(--card); border-radius: 12px; padding: 10px; border: 1px solid var(--border); margin-bottom: 20px; height: 180px; }
+        .btn-add { background: var(--accent); color: white; border: none; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; }
+        
+        strong, .stat-value { color: var(--data-blue); }
+    </style>
+</head>
+<body>
+
+<div class="header"><h1>NutriRecomp Master OS</h1></div>
+
+<section id="tab-plan" class="content-section active">
+    <div id="plan-display"></div>
+</section>
+
+<section id="tab-workout" class="content-section">
+    <div id="workout-display"></div>
+</section>
+
+<section id="tab-recettes" class="content-section">
+    <div class="day-label">Recettes Détaillées</div>
+    <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterRecettes('all', this)">Toutes</button>
+        <button class="filter-btn" onclick="filterRecettes('Matin', this)">Matin</button>
+        <button class="filter-btn" onclick="filterRecettes('Midi', this)">Midi</button>
+        <button class="filter-btn" onclick="filterRecettes('Soir', this)">Soir</button>
+    </div>
+    <div id="recettes-display"></div>
+</section>
+
+<section id="tab-courses" class="content-section">
+    <div id="courses-display"></div>
+</section>
+
+<section id="tab-progression" class="content-section">
+    <div class="card">
+        <div class="day-label" style="margin:0 0 10px 0;">Pesée du jour</div>
+        <div style="display: flex; gap: 10px;">
+            <input type="number" id="w-val" step="0.1" placeholder="Poids kg" style="flex:1; background:#222; border:1px solid #444; color:white; padding:10px; border-radius:8px;">
+            <button class="btn-add" onclick="addWeight()" style="width:80px; padding:0;">OK</button>
+        </div>
+    </div>
+    <div class="day-label" style="font-size:0.7rem;">Évolution du Poids</div>
+    <div class="chart-container"><canvas id="weightChart"></canvas></div>
+    <div class="day-label" style="font-size:0.7rem;">Progrès Performance</div>
+    <div class="chart-container"><canvas id="perfChart"></canvas></div>
+</section>
+
+<nav class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('plan', event)">Plan</button>
+    <button class="tab-btn" onclick="switchTab('workout', event)">Workout</button>
+    <button class="tab-btn" onclick="switchTab('recettes', event)">Recettes</button>
+    <button class="tab-btn" onclick="switchTab('courses', event)">Courses</button>
+    <button class="tab-btn" onclick="switchTab('progression', event)">Suivi</button>
+</nav>
+
+<script>
+    const daysWeek = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+    const todayName = daysWeek[new Date().getDay()];
+
+    const appData = {
+        plan: {
+            "Lundi": { type: "Pull", meals: ["Matin: Avoine & Whey", "Midi: Dinde au Curry", "Soir: Sardines & Patate"] },
+            "Mardi": { type: "Push", meals: ["Matin: Omelette & Pain", "Midi: Chili de Bœuf", "Soir: Maquereau & Quinoa"] },
+            "Mercredi": { type: "Repos", meals: ["Yaourt & Noix", "Reste Chili Bœuf", "Thon & Avocat"] },
+            "Jeudi": { type: "Pull Skills", meals: ["Matin: Avoine & Whey", "Midi: Dinde au Curry", "Soir: Maquereau & Quinoa"] },
+            "Vendredi": { type: "Push", meals: ["Matin: Omelette & Pain", "Midi: Chili de Bœuf", "Soir: Sardines & Riz"] },
+            "Samedi": { type: "Prep", meals: ["Brunch Œufs Avocat", "Poulet Rôti & Patates"] },
+            "Dimanche": { type: "Repos", meals: ["Avoine & Beurre", "Thon & Pâtes", "Salade Œufs"] }
+        },
+        workout: {
+            "Lundi": [["Tractions strictes", "8×3", "Focus"], ["Scapular pulls", "3×12", "Lent"], ["Tuck Front Lever", "3×10s", "Tenir"]],
+            "Mardi": [["Dips chaise", "4×10", "Amplitude"], ["Pompes diamant", "3×12", "Triceps"]],
+            "Jeudi": [["Tractions explosives", "6×3", "Haut"], ["Dead hang", "3×MAX", "Grip"]],
+            "Vendredi": [["Pompes archer", "3×6/côté", "Force"], ["Squats", "4×15", "Jambes"]]
+        },
+        recettes: [
+            { titre: "Dinde au Curry", cat: "Midi", temps: "15m", ing: ["200g Dinde", "Riz", "Curry"], steps: ["Cuire le riz.", "Saisir la dinde."] },
+            { titre: "Chili Bœuf", cat: "Midi", temps: "12m", ing: ["Bœuf 5%", "Haricots"], steps: ["Saisir bœuf.", "Mijoter."] }
+        ],
+        courses: {
+            "Boucherie": ["Dinde 800g", "Bœuf 800g", "Œufs 24"],
+            "Placard": ["Riz", "Avoine", "Thon", "Sardines"]
+        }
+    };
+
+    function switchTab(t, event) {
+        document.querySelectorAll('.content-section, .tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(`tab-${t}`).classList.add('active');
+        if(event) event.currentTarget.classList.add('active');
+        if(t === 'progression') { setTimeout(() => { initCharts(); }, 100); }
+    }
+
+    let wChart, pChart;
+    function initCharts() {
+        const wCtx = document.getElementById('weightChart').getContext('2d');
+        const pCtx = document.getElementById('perfChart').getContext('2d');
+        if(wChart) wChart.destroy(); if(pChart) pChart.destroy();
+        
+        wChart = new Chart(wCtx, { type: 'line', data: { labels: ["01/04", "08/04", "15/04"], datasets: [{ data: [76, 75.5, 75.2], borderColor: '#ab58cd', tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+        pChart = new Chart(pCtx, { type: 'bar', data: { labels: ["S1", "S2", "S3"], datasets: [{ data: [5, 7, 8], backgroundColor: '#a9edf8' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+    }
+
+    function filterRecettes(category, btn) {
+        if(btn) { document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+        const display = document.getElementById('recettes-display'); display.innerHTML = '';
+        const filtered = category === 'all' ? appData.recettes : appData.recettes.filter(r => r.cat === category);
+        filtered.forEach((r, i) => {
+            const id = `rec-${i}`;
+            display.innerHTML += `<div class="card" onclick="document.getElementById('${id}').classList.toggle('active')"><div style="display:flex; justify-content:space-between;"><strong>${r.titre}</strong><span>⏱ ${r.temps}</span></div><div id="${id}" class="recipe-details"><div style="background:#222; padding:10px; border-radius:8px; font-size:0.8rem;">${r.ing.join(' • ')}</div></div></div>`;
+        });
+    }
+
+    window.onload = () => {
+        const pCont = document.getElementById('plan-display'); pCont.innerHTML = '<div class="day-label">Plan du jour</div>';
+        Object.keys(appData.plan).forEach(day => {
+            const isToday = day === todayName;
+            pCont.innerHTML += `<div class="card ${isToday?'today':''}"><strong>${day}</strong> <small style="color:var(--accent)">(${appData.plan[day].type})</small><ul style="font-size:0.8rem; color:#ccc; margin-top:5px;">${appData.plan[day].meals.map(m=>`<li>${m}</li>`).join('')}</ul></div>`;
+        });
+        const wCont = document.getElementById('workout-display');
+        const session = appData.workout[todayName];
+        if(!session) { wCont.innerHTML = `<div class="day-label">${todayName}</div><div class="card">Repos !</div>`; }
+        else {
+            let h = `<div class="day-label">${todayName}</div><div class="card">`;
+            session.forEach(exo => h += `<div class="exo-line"><div><span class="exo-name">${exo[0]}</span><span class="exo-tip">${exo[1]}</span></div><input type="text" class="perf-input" placeholder="-"></div>`);
+            wCont.innerHTML = h + `</div>`;
+        }
+        const cCont = document.getElementById('courses-display');
+        Object.entries(appData.courses).forEach(([cat, items]) => {
+            let h = `<div class="day-label">${cat}</div><div class="card">`;
+            items.forEach(it => h += `<div class="shopping-item"><input type="checkbox"><span>${it}</span></div>`);
+            cCont.innerHTML += h + `</div>`;
+        });
+        filterRecettes('all');
+    };
+</script>
+</body>
+</html>
